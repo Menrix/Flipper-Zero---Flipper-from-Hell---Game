@@ -1,0 +1,13 @@
+App(
+    appid="f_fromhell",
+    name="F-FromHell",
+    apptype=FlipperAppType.EXTERNAL,
+    entry_point="streetflipper_app",
+    requires=["gui"],
+    stack_size=4 * 1024,
+    fap_category="Games",
+    fap_icon="icon.png",
+    fap_version="0.24",
+    fap_description="2D fighting game with real sprite fighters in grayscale, start menu + volume, VS intro, best of 3",
+    fap_author="StreetFlipper",
+)
