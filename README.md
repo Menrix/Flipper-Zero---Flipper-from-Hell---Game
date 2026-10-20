@@ -1,8 +1,10 @@
 # Flipper from Hell
 
-  ![Gameplay](screenshots/gameplay.gif)
+[![Flipper from Hell — gameplay](screenshots/gameplay.gif)](https://menrix.github.io/Flipper-Zero---Flipper-from-Hell---Game/)
 
-![Flipper from Hell — gameplay on the Flipper Zero](screenshots/Preview.png)
+[![Play in Browser](https://img.shields.io/badge/Play%20in%20Browser-%E2%96%B6-F7A300?style=for-the-badge)](https://menrix.github.io/Flipper-Zero---Flipper-from-Hell---Game/)
+
+**▶ [Play the demo in your browser](https://menrix.github.io/Flipper-Zero---Flipper-from-Hell---Game/)** — no Flipper needed. (Click the GIF or the button above.)
 
 A 2D fighting game for the Flipper Zero in the style of classic arcade
 brawlers, rendered in real grayscale on the 1‑bit display. Shades are
