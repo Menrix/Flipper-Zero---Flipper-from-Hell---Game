@@ -1,5 +1,7 @@
 # Flipper from Hell
 
+  ![Gameplay](screenshots/gameplay.gif)
+
 ![Flipper from Hell — gameplay on the Flipper Zero](screenshots/Preview.png)
 
 A 2D fighting game for the Flipper Zero in the style of classic arcade
