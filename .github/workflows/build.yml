@@ -1,0 +1,121 @@
+name: Build FAP
+
+# When does it build?
+# - Upload to main ............ test build (files under Actions → Artifacts, no release)
+# - Publish a release ......... builds for both firmwares and attaches the .fap files
+# - Every night ............... checks whether official or Momentum has a new firmware;
+#                               only then rebuilds and replaces the .fap files in the latest release
+# - Actions → Run workflow .... rebuilds now and replaces the .fap files in the latest release
+
+on:
+  push:
+    branches: [main, master]
+  release:
+    types: [published]
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+    steps:
+      - name: Look up the current firmware versions
+        run: |
+          get() { curl -fsSL "$1" | jq -r '[.channels[] | select(.id=="release") | .versions[0].version][0] // "unknown"' || echo unknown; }
+          echo "official=$(get https://update.flipperzero.one/firmware/directory.json)" >  sdk-versions.txt
+          echo "momentum=$(get https://up.momentum-fw.dev/firmware/directory.json)"   >> sdk-versions.txt
+          cat sdk-versions.txt
+
+      - name: Build now?
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if ! gh release download --pattern sdk-versions.txt --output old.txt 2>/dev/null; then
+            echo "No release with sdk-versions.txt yet - nothing to update."
+            echo "build=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if cmp -s old.txt sdk-versions.txt; then
+            echo "Firmware unchanged - no build needed."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New firmware found - rebuilding."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-versions
+          path: sdk-versions.txt
+
+  build:
+    needs: check
+    if: needs.check.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: official
+            sdk-index-url: https://update.flipperzero.one/firmware/directory.json
+          - name: momentum
+            sdk-index-url: https://up.momentum-fw.dev/firmware/directory.json
+    name: Build (${{ matrix.name }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with ufbt
+        uses: flipperdevices/flipperzero-ufbt-action@v0.1
+        id: build-app
+        with:
+          sdk-channel: release
+          sdk-index-url: ${{ matrix.sdk-index-url }}
+
+      - name: Rename FAP
+        run: |
+          ver=$(grep -oP 'fap_version="\K[^"]+' application.fam)
+          mkdir -p dist
+          for f in ${{ steps.build-app.outputs.fap-artifacts }}; do
+            cp "$f" "dist/Flipper_from_Hell-v${ver}-${{ matrix.name }}.fap"
+          done
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Flipper_from_Hell-${{ matrix.name }}
+          path: dist/*.fap
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            tag="${{ github.event.release.tag_name }}"
+          else
+            tag=$(gh release view --json tagName -q .tagName) || { echo "No release yet - publish one first."; exit 0; }
+          fi
+          echo "Uploading to release $tag:"
+          ls -l dist
+          gh release upload "$tag" dist/*.fap dist/sdk-versions.txt --clobber
